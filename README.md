@@ -8,4 +8,4 @@ Enter your credentials and press Login. The app logs into your Asianet account a
 Requirements
 1. Asianet DataLine internet connection
 2. WiFi router
-3. Your device
+3. Your Android device !
