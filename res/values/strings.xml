@@ -43,5 +43,7 @@
 	<string name="show_persitent_notification">Show persistent notification</string>
 	<string name="ssid">WiFi SSID</string>
 	<string name="upto">Upto</string>
+	<string name="enter_username">Enter Username</string>
+	<string name="enter_password">Enter Password</string>
 
 </resources>

@@ -19,6 +19,9 @@
 
 package riddimon.android.asianetautologin;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -27,7 +30,7 @@ import android.net.wifi.WifiManager;
 import android.text.TextUtils;
 
 public class NetworkUtil {
-    
+    private static final Logger logger = LoggerFactory.getLogger(NetworkUtil.class);
     public static int TYPE_WIFI = 1;
     public static int TYPE_MOBILE = 2;
     public static int TYPE_NOT_CONNECTED = 0;
@@ -65,8 +68,11 @@ public class NetworkUtil {
 		WifiManager wm = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
 		String ssid = SettingsManager.getString(context, SettingsManager.SSID, null);
 		WifiInfo wi = wm.getConnectionInfo();
-		if (wm.isWifiEnabled() && wi != null && !TextUtils.isEmpty(ssid)) {
-			String wssid = wi.getSSID().toString();
+		if (wm != null && wm.isWifiEnabled() && wi != null
+				&& !TextUtils.isEmpty(ssid)) {
+			logger.info("Checking if connected to network SSID : {}", ssid);
+			String wssid = wi.getSSID();
+			logger.info("Connected to network SSID : {}", wssid);
 			if (!TextUtils.isEmpty(wssid)) {
 				wssid = wssid.replace("\"", "");
 				if (wssid.equalsIgnoreCase(ssid)) {

@@ -33,6 +33,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.net.NetworkInfo;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
@@ -50,6 +51,7 @@ import android.widget.Spinner;
 import android.widget.Toast;
 
 public class CredentialActivity extends Activity implements OnClickListener {
+	private AlertDialog mElsewhereDialog;
 	private Button mLogin;
 	private Button mLogout;
 	private Button mSave;
@@ -63,6 +65,7 @@ public class CredentialActivity extends Activity implements OnClickListener {
 	private boolean mBound = false;
 	private boolean mRegistered = false;
 	private boolean mLoggedIn = false;
+	private boolean mLoggedInElsewhere = false;
 	private int[] mStaySignedInNumbers = null;
 	private List<String> mStaySignedInItems;
 	private LoginService mLoginService;
@@ -71,28 +74,6 @@ public class CredentialActivity extends Activity implements OnClickListener {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.credential_screen);
-
-		//get wifi networks
-		WifiManager wm = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-		List<WifiConfiguration> lwc = wm.getConfiguredNetworks();
-		WifiInfo wi = wm.getConnectionInfo();
-		String wssid = null;
-		if (wm.isWifiEnabled() && wi != null) {
-			wssid = wi.getSSID().replace("\"", "");
-		}
-
-		List<String> ssids = new ArrayList<String>();
-		int selection = 0;
-		if (lwc != null) {
-			int i = -1;
-			for (WifiConfiguration wc : lwc) {
-				i++;
-				String ssid = TextUtils.isEmpty(wc.SSID) ? ""
-						: wc.SSID.replace("\"", "");
-				ssids.add(ssid);
-				if (ssid.equals(wssid)) selection = i; 
-			}
-		}
 
 		mStaySignedInNumbers = getResources().getIntArray(R.array.signed_in_for);
 		mStaySignedInItems = new ArrayList<String>();
@@ -110,16 +91,14 @@ public class CredentialActivity extends Activity implements OnClickListener {
 		mLogout = (Button) findViewById(R.id.bt_logout);
 		mSave = (Button) findViewById(R.id.bt_save);
 
-		mSsid.setAdapter(new ArrayAdapter<String>(this, android.R
-				.layout.simple_spinner_dropdown_item, ssids));
 		mStaySignedInFor.setAdapter(new ArrayAdapter<String>(this, android.R
 				.layout.simple_spinner_dropdown_item, mStaySignedInItems));
 		mStaySignedInFor.setSelection(mStaySignedInNumbers.length);
 
-		mSsid.setSelection(selection);
 		mLogin.setOnClickListener(this);
 		mLogout.setOnClickListener(this);
 		mSave.setOnClickListener(this);
+		refreshNetworkSpinnerIfNecessary();
 
 		String username = SettingsManager.getString(this, SettingsManager
 				.USERNAME, null);
@@ -139,9 +118,13 @@ public class CredentialActivity extends Activity implements OnClickListener {
 			mPassword.setText(password);
 		}
 		if (!TextUtils.isEmpty(ssid)) {
-			mSsid.setSelection(ssids.indexOf(ssid));
+			if (mSsids.size() > 0) {
+				int index = mSsids.indexOf(ssid);
+				mSsid.setSelection(index == -1 ? 0 : index);
+			}
 		}
 
+		int selection = 0;
 		if (staySignedInFor == -1) selection = mStaySignedInNumbers.length;
 		else {
 			for (int i = 0; i < mStaySignedInNumbers.length; i++) {
@@ -173,6 +156,7 @@ public class CredentialActivity extends Activity implements OnClickListener {
         super.onStop();
         // Unbind from the service
         if (isFinishing()) {
+        	closeProgressDialog();
         	enableBroadcastReceiver(false);
 	        if (mBound) {
 	            unbindService(mConnection);
@@ -184,6 +168,7 @@ public class CredentialActivity extends Activity implements OnClickListener {
     @Override
     protected void onDestroy() {
     	super.onDestroy();
+    	closeProgressDialog();
     	enableBroadcastReceiver(false);
     }
 
@@ -197,7 +182,12 @@ public class CredentialActivity extends Activity implements OnClickListener {
             LoginBinder binder = (LoginBinder) service;
             mLoginService = binder.getService();
             mBound = true;
-            checkIfLoggedInAndUpdate();
+            runOnUiThread(new Runnable() {
+            	@Override
+            	public void run() {
+                    checkIfLoggedInAndUpdate();
+            	}
+            });
         }
 
         @Override
@@ -205,6 +195,37 @@ public class CredentialActivity extends Activity implements OnClickListener {
             mBound = false;
         }
     };
+
+    private void refreshNetworkSpinnerIfNecessary() {
+    	if (mSsids != null && mSsids.size() != 0) return;
+		//get wifi networks
+		WifiManager wm = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+		List<WifiConfiguration> lwc = wm.getConfiguredNetworks();
+		WifiInfo wi = wm.getConnectionInfo();
+		String wssid = null;
+		if (wi != null && wm.isWifiEnabled()) {
+			wssid = wi.getSSID().replace("\"", "");
+		}
+
+		mSsids = new ArrayList<String>();
+		int selection = 0;
+		if (lwc != null) {
+			int i = -1;
+			for (WifiConfiguration wc : lwc) {
+				i++;
+				String ssid = TextUtils.isEmpty(wc.SSID) ? ""
+						: wc.SSID.replace("\"", "");
+				mSsids.add(ssid);
+				if (!TextUtils.isEmpty(wssid) && ssid.equals(wssid)) {
+					selection = i; 
+				}
+			}
+		}
+
+		mSsid.setAdapter(new ArrayAdapter<String>(this, android.R
+				.layout.simple_spinner_dropdown_item, mSsids));
+		mSsid.setSelection(selection);
+    }
 
     private void enableBroadcastReceiver(boolean enable) {
     	if (enable) {
@@ -215,8 +236,13 @@ public class CredentialActivity extends Activity implements OnClickListener {
 
     		LocalBroadcastManager.getInstance(this).registerReceiver(mReceiver
     				, broadcastFilter);
+
+    		broadcastFilter = new IntentFilter();
+    		broadcastFilter.addAction(ServiceStarter.ACTION_STATE_CHANGE);
+    		registerReceiver(mWifiReceiver, broadcastFilter);
     	} else if (mRegistered) {
     		LocalBroadcastManager.getInstance(this).unregisterReceiver(mReceiver);
+    		unregisterReceiver(mWifiReceiver);
     	}
 		mRegistered = enable;
     }
@@ -228,7 +254,27 @@ public class CredentialActivity extends Activity implements OnClickListener {
     	mLogin.setEnabled(!mLoggedIn);
     	mLogout.setEnabled(mLoggedIn && !TextUtils.isEmpty(SettingsManager
     			.getString(this, SettingsManager.URL, null)));
+
+    	if (mLoggedInElsewhere) {
+    		showElsewhereDialog();
+    	}
 //    	mSave.setEnabled(!mLoggedIn);
+    }
+
+    private void showElsewhereDialog() {
+    	if (mElsewhereDialog == null || !mElsewhereDialog.isShowing()) {
+			mElsewhereDialog = new AlertDialog.Builder(this).setTitle("Another device")
+					.setMessage("You are already logged in from another device."
+					+ "\n\nPlease logout from all other devices before continuing.")
+					.setNeutralButton(android.R.string.ok
+					, new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							dialog.dismiss();
+						}
+			}).create();
+	    	mElsewhereDialog.show();
+    	}
     }
 
     private void closeProgressDialog() {
@@ -247,7 +293,9 @@ public class CredentialActivity extends Activity implements OnClickListener {
     					@Override
     					public void run() {
     						updateLoggedInMode();
-    						closeProgressDialog();
+    						if (!CredentialActivity.this.isFinishing()) {
+    							closeProgressDialog();
+    						}
     					}
     				});
     			}
@@ -337,8 +385,12 @@ public class CredentialActivity extends Activity implements OnClickListener {
 				String action = intent.getAction();
 				final boolean status = intent.getBooleanExtra(LoginService.EX_STATUS
 						, false);
+
+				mLoggedInElsewhere = false;
 				if (action.equals(LoginService.ACTION_LOGIN)) {
 					mLoggedIn = status;
+					mLoggedInElsewhere = intent.getBooleanExtra(LoginService
+								.EX_LOGGED_IN_ELSEWHERE, false);
 				} else if (action.equals(LoginService.ACTION_LOGOUT)) {
 					mLoggedIn = !status;
 				} else if (action.equals(LoginService.ACTION_KEEP_ALIVE)) {
@@ -354,4 +406,27 @@ public class CredentialActivity extends Activity implements OnClickListener {
 			}
 		}
 	};
+
+	private BroadcastReceiver mWifiReceiver = new BroadcastReceiver() {
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			if (intent.getAction().equals(ServiceStarter.ACTION_STATE_CHANGE)) {
+				NetworkInfo networkInfo = (NetworkInfo) intent.getParcelableExtra(WifiManager
+						.EXTRA_NETWORK_INFO);
+				if (networkInfo.isConnected()) {
+					if (!CredentialActivity.this.isFinishing()) {
+						runOnUiThread(new Runnable() {
+							@Override
+							public void run() {
+								// refresh network spinner
+								refreshNetworkSpinnerIfNecessary();
+							}
+						});
+					}
+				}
+			}
+		}
+	};
+	private List<String> mSsids;
+
 }

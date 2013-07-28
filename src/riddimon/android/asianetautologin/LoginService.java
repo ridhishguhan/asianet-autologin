@@ -63,6 +63,7 @@ public class LoginService extends Service {
 	public static final String ACTION_LOGOUT = "action_logout";
 
 	public static final String EX_STATUS = "status";
+	public static final String EX_LOGGED_IN_ELSEWHERE = "elsewhere";
 	public static final int STATUS_OK = 1;
 	public static final int STATUS_FAIL = 2;
 
@@ -174,16 +175,18 @@ public class LoginService extends Service {
 
 		private boolean work() {
 			// don't proceed if we're not connected to the proper network
+			ConnectivityManager cm = (ConnectivityManager) mContext.getSystemService(Context
+					.CONNECTIVITY_SERVICE);
 			boolean status = true;
 			boolean retry = false;
+			boolean loggedInElseWhere = false;
 			boolean connected = NetworkUtil.isConnectedToProperNetwork(mContext);
 			logger.info("Connected to proper network : {}", connected);
 
 			// set preferred network to WiFi so that, in the case of login
 			// google is contacted through the WiFi network rather than the 
 			// 3G network
-			ConnectivityManager cm = (ConnectivityManager) mContext.getSystemService(Context
-					.CONNECTIVITY_SERVICE);
+
 			int cmp = cm.getNetworkPreference();
 			cm.setNetworkPreference(ConnectivityManager.TYPE_WIFI);
 			status &= connected;
@@ -204,8 +207,17 @@ public class LoginService extends Service {
 							, password)	: keepAlive(url, username);
 					retry = !status;
 				} else if (mAction.equals(LoginService.ACTION_LOGIN) && renewOrLogin) {
-					status &= login(url, username, password);
-					retry = !status;
+					boolean loggedIn = isLoggedIn();
+					if (loggedIn && !TextUtils.isEmpty(url)) {
+						status &= keepAlive(url, username);
+						retry = !status;
+					} else if (!loggedIn) {
+						status &= login(url, username, password);
+						retry = !status;
+					} else {
+						status = false;
+						loggedInElseWhere = true;
+					}
 				} else if (mAction.equals(LoginService.ACTION_LOGOUT) && !TextUtils.isEmpty(url)) {
 					status &= logout(url, username);
 					// no need to continue running the service
@@ -218,6 +230,7 @@ public class LoginService extends Service {
 
 			Intent intent = new Intent(mAction);
 			intent.putExtra(EX_STATUS, status);
+			intent.putExtra(EX_LOGGED_IN_ELSEWHERE, loggedInElseWhere);
 			LocalBroadcastManager.getInstance(mContext).sendBroadcast(intent);
 			cm.setNetworkPreference(cmp);
 
@@ -366,8 +379,10 @@ public class LoginService extends Service {
 			boolean status = (response != null && (response.getStatusLine().getStatusCode()
 					== HttpStatus.SC_OK || response.getStatusLine().getStatusCode()
 					== HttpStatus.SC_NO_CONTENT));
-			logger.info("Keep alive response : {} / {}", response.toString()
-					, response.getStatusLine().toString());
+			if (response != null) {
+				logger.info("Keep alive response : {} / {}", response.toString()
+						, response.getStatusLine().toString());
+			}
 			logger.info("Keep alive status : {}", status);
 			return status;
 		}
