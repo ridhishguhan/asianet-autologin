@@ -164,12 +164,16 @@ public class LoginService extends Service {
 			while (attempt++ < 3) {
 				if (work()) {
 					try {
-						Thread.sleep(attempt * 3 * DateUtils.SECOND_IN_MILLIS);
+						Thread.sleep((attempt + 1) * 3 * DateUtils.SECOND_IN_MILLIS);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 						break;
 					}
 				}
+			}
+			if (attempt == 3) {
+				// schedule attempt after ten seconds
+				setAlarm(10 * DateUtils.SECOND_IN_MILLIS, false);
 			}
 		}
 
@@ -210,6 +214,9 @@ public class LoginService extends Service {
 					boolean loggedIn = isLoggedIn();
 					if (loggedIn && !TextUtils.isEmpty(url)) {
 						status &= keepAlive(url, username);
+						if (status) {
+							setAlarm(REPEAT_FREQ, true);
+						}
 						retry = !status;
 					} else if (!loggedIn) {
 						status &= login(url, username, password);
@@ -324,16 +331,25 @@ public class LoginService extends Service {
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
-				AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
-				Intent intent = new Intent(ACTION_KEEP_ALIVE);
-				intent.setClass(mContext, LoginService.class);
-				PendingIntent pi = PendingIntent.getService(mContext, REQUEST_CODE
-						, intent
-						, PendingIntent.FLAG_CANCEL_CURRENT);
-				long next = System.currentTimeMillis() + REPEAT_FREQ + 1000;
-				am.setRepeating(AlarmManager.RTC_WAKEUP, next, REPEAT_FREQ
-						, pi);
 
+				// set alarm to run service every 5 mins
+				setAlarm(REPEAT_FREQ, true);
+
+				return true;
+			}
+			return false;
+		}
+
+		private void setAlarm(long interval, boolean repeat) {
+			AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
+			Intent intent = new Intent(ACTION_KEEP_ALIVE);
+			intent.setClass(mContext, LoginService.class);
+			PendingIntent pi = PendingIntent.getService(mContext, REQUEST_CODE
+					, intent
+					, PendingIntent.FLAG_CANCEL_CURRENT);
+			long next = System.currentTimeMillis() + interval + 1000;
+			if (repeat) {
+				am.setRepeating(AlarmManager.RTC_WAKEUP, next, REPEAT_FREQ, pi);
 				// if show notification is enabled, show it
 				if (SettingsManager.getBoolean(mContext, SettingsManager.SHOW_NOTIF
 						, true)) {
@@ -363,10 +379,9 @@ public class LoginService extends Service {
 					Notification n = b.build();
 					nm.notify(1000, n);
 				}
-
-				return true;
+			} else {
+				am.set(AlarmManager.RTC_WAKEUP, next, pi);
 			}
-			return false;
 		}
 
 		private boolean keepAlive(String url, String uname) {
