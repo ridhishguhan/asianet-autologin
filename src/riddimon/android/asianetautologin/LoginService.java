@@ -277,7 +277,8 @@ public class LoginService extends Service {
 		private boolean login(String url, String uname, String pwd) {
 			logger.info("Login initiated");
 			boolean alreadyLoggedIn = isLoggedIn();
-			if (!alreadyLoggedIn && TextUtils.isEmpty(url)) {
+			// the url might change from time to time, so keep it updated
+			if (!alreadyLoggedIn/* && TextUtils.isEmpty(url)*/) {
 				// find the url
 				HttpResponse response = HttpUtils
 						.execute(mContext, HttpMethod.GET, REFERENCE_SITE, null);

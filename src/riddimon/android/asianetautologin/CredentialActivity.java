@@ -204,7 +204,10 @@ public class CredentialActivity extends Activity implements OnClickListener {
 		WifiInfo wi = wm.getConnectionInfo();
 		String wssid = null;
 		if (wi != null && wm.isWifiEnabled()) {
-			wssid = wi.getSSID().replace("\"", "");
+			String ssid = wi.getSSID();
+			if (!TextUtils.isEmpty(ssid)) {
+				wssid = ssid.replace("\"", "");
+			}
 		}
 
 		mSsids = new ArrayList<String>();
@@ -224,7 +227,9 @@ public class CredentialActivity extends Activity implements OnClickListener {
 
 		mSsid.setAdapter(new ArrayAdapter<String>(this, android.R
 				.layout.simple_spinner_dropdown_item, mSsids));
-		mSsid.setSelection(selection);
+		if (mSsids != null && mSsids.size() > 0) {
+			mSsid.setSelection(selection);
+		}
     }
 
     private void enableBroadcastReceiver(boolean enable) {
