@@ -67,7 +67,7 @@ public class LoginService extends Service {
 	public static final int STATUS_OK = 1;
 	public static final int STATUS_FAIL = 2;
 
-	private static final String REFERENCE_SITE = "http://www.google.co.in";
+	private static final String REFERENCE_SITE = "http://www.reddit.com";
 
 	// logout
 	private static final String FIELD_LOGOUT_ID = "logout_id";
@@ -77,7 +77,7 @@ public class LoginService extends Service {
 	// keep alive
 	private static final String FIELD_ALIVE = "alive";
 	private static final String FIELD_ALIVE_VALUE = "y";
-	private static final String FIELD_ALIVE_UN = "un";
+	private static final String FIELD_ALIVE_UN = "auth_user";
 	
 	// login
 	private static final String FIELD_AUTH_USER = "auth_user";
