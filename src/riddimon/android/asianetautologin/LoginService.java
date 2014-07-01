@@ -108,7 +108,7 @@ public class LoginService extends Service {
 	 */
 	public boolean isLoggedIn() {
 		boolean loggedIn = false;
-		HttpResponse response = HttpUtils.execute(this, HttpMethod.GET, REFERENCE_SITE, null);
+		HttpResponse response = HttpUtils.execute(this, HttpMethod.HEAD, REFERENCE_SITE, null);
 		if (response != null) {
 			if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
 				loggedIn = true;
