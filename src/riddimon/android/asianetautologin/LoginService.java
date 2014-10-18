@@ -67,7 +67,7 @@ public class LoginService extends Service {
 	public static final int STATUS_OK = 1;
 	public static final int STATUS_FAIL = 2;
 
-	private static final String REFERENCE_SITE = "http://www.google.co.in";
+	private static final String REFERENCE_SITE = "http://www.reddit.com";
 
 	// logout
 	private static final String FIELD_LOGOUT_ID = "logout_id";
@@ -77,7 +77,7 @@ public class LoginService extends Service {
 	// keep alive
 	private static final String FIELD_ALIVE = "alive";
 	private static final String FIELD_ALIVE_VALUE = "y";
-	private static final String FIELD_ALIVE_UN = "un";
+	private static final String FIELD_ALIVE_UN = "auth_user";
 	
 	// login
 	private static final String FIELD_AUTH_USER = "auth_user";
@@ -108,12 +108,13 @@ public class LoginService extends Service {
 	 */
 	public boolean isLoggedIn() {
 		boolean loggedIn = false;
-		HttpResponse response = HttpUtils.execute(this, HttpMethod.GET, REFERENCE_SITE, null);
+		HttpResponse response = HttpUtils.execute(this, HttpMethod.HEAD, REFERENCE_SITE, null);
 		if (response != null) {
 			if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
 				loggedIn = true;
 			}
 		}
+		new UsageInformation(this).performLogin();
 		logger.info("Redirected : {}", !loggedIn);
 		if (!loggedIn && response != null) {
 			Header[] headers = response.getHeaders("Location");
@@ -310,6 +311,7 @@ public class LoginService extends Service {
 						}
 					}
 				}
+
 				if (!found) return false;
 			}
 			Map<String, String> paramz = new HashMap<String, String>();
@@ -364,12 +366,9 @@ public class LoginService extends Service {
 							NOTIFICATION_SERVICE);
 					Builder b = new NotificationCompat.Builder(mContext);
 					b.setOngoing(true);
+					String usage = new UsageInformation(mContext).getPageContent();
 					b.setContentTitle(getResources().getString(R.string.app_name));
-					b.setContentText(getResources().getString(R.string.from)
-							+ " : " + sdf.format(new Date(login))
-							+ (limit <= 0 ? "" : " | " + getResources().getString(R
-									.string.upto) + " : " + sdf.format(new Date(login
-											+ limit * DateUtils.HOUR_IN_MILLIS))));
+					b.setContentText("Usage : " + usage + " MB");
 					b.setSmallIcon(R.drawable.ic_launcher);
 					b.setTicker(getResources().getString(R.string.logged_in)
 							+ ", " + getResources().getString(R.string.internet_access));

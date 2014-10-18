@@ -41,11 +41,7 @@ import javax.net.ssl.X509TrustManager;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.methods.*;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
@@ -71,7 +67,7 @@ public class HttpUtils {
 			+" AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0"
 			+ " Safari/537.36";
 	public enum HttpMethod {
-		GET, POST, PUT, DELETE, INVALID
+		GET, POST, PUT, DELETE, HEAD, INVALID
 	}
 	private static final Logger logger = LoggerFactory
 			.getLogger(HttpUtils.class);
@@ -213,7 +209,8 @@ public class HttpUtils {
 	private HttpResponse execute(HttpMethod method, String url, Map<String, String> paramz
 			, List<BasicHeader> headers ) {
 		if (!(method.equals(HttpMethod.GET) || method.equals(HttpMethod.DELETE)
-				|| method.equals(HttpMethod.PUT) || method.equals(HttpMethod.POST)) || TextUtils.isEmpty(url)) {
+				|| method.equals(HttpMethod.PUT) || method.equals(HttpMethod.POST)
+                || method.equals(HttpMethod.HEAD)) || TextUtils.isEmpty(url)) {
 			logger.error("Invalid request : {} | {}", method.name(), url);
 			return null;
 		}
@@ -225,14 +222,17 @@ public class HttpUtils {
 				HttpUriRequest req = null;
 				switch (method) {
 				case GET:
+                case HEAD:
 				case DELETE:
 					url = paramz != null && paramz.size() > 0 ? url + "?"
 							+ query : url;
-					if (method.equals(HttpMethod.GET)) {
+                    if (method.equals(HttpMethod.GET)) {
 						req = new HttpGet(url);
 					} else if (method.equals(HttpMethod.DELETE)){
 						req = new HttpDelete(url);
-					}
+					} else if (method.equals(HttpMethod.HEAD)) {
+                        req = new HttpHead(url);
+                    }
 					break;
 				case POST:
 				case PUT:
