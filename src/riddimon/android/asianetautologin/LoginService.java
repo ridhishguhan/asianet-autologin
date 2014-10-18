@@ -114,6 +114,7 @@ public class LoginService extends Service {
 				loggedIn = true;
 			}
 		}
+		new UsageInformation(this).performLogin();
 		logger.info("Redirected : {}", !loggedIn);
 		if (!loggedIn && response != null) {
 			Header[] headers = response.getHeaders("Location");
@@ -310,6 +311,7 @@ public class LoginService extends Service {
 						}
 					}
 				}
+
 				if (!found) return false;
 			}
 			Map<String, String> paramz = new HashMap<String, String>();
@@ -364,12 +366,9 @@ public class LoginService extends Service {
 							NOTIFICATION_SERVICE);
 					Builder b = new NotificationCompat.Builder(mContext);
 					b.setOngoing(true);
+					String usage = new UsageInformation(mContext).getPageContent();
 					b.setContentTitle(getResources().getString(R.string.app_name));
-					b.setContentText(getResources().getString(R.string.from)
-							+ " : " + sdf.format(new Date(login))
-							+ (limit <= 0 ? "" : " | " + getResources().getString(R
-									.string.upto) + " : " + sdf.format(new Date(login
-											+ limit * DateUtils.HOUR_IN_MILLIS))));
+					b.setContentText("Usage : " + usage + " MB");
 					b.setSmallIcon(R.drawable.ic_launcher);
 					b.setTicker(getResources().getString(R.string.logged_in)
 							+ ", " + getResources().getString(R.string.internet_access));
